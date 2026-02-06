@@ -1,0 +1,453 @@
+openapi: 3.0.3
+info:
+  title: First Therapy Backend API
+  description: |
+    REST API for the First Therapy platform.
+
+    **Authentication:** Protected endpoints require a JWT token passed via `Authorization: Bearer <token>` header.
+
+    **Payment Providers:** The billing system supports multiple providers — LemonSqueezy and Dodo Payments.
+  version: 1.0.0
+  contact:
+    name: The Brain Psych
+    url: https://github.com/thebrainpsych
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+  - url: https://api.firsttherapy.com
+    description: Production (example)
+
+tags:
+  - name: Auth
+    description: Authentication and authorization (Google OAuth, Firebase, Email, Dev login)
+  - name: Calendar
+    description: Therapy session scheduling with Google Calendar & Meet
+  - name: Billing
+    description: Checkout and payment webhook handling
+  - name: Pages
+    description: Static status pages
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from /auth/login or /auth/firebase
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "user_abc123"
+        email:
+          type: string
+          format: email
+          example: "john@example.com"
+        name:
+          type: string
+          example: "John Doe"
+
+    LoginRequest:
+      type: object
+      required: [id, email, name]
+      properties:
+        id:
+          type: string
+          example: "user_abc123"
+        email:
+          type: string
+          format: email
+          example: "john@example.com"
+        name:
+          type: string
+          example: "John Doe"
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIs..."
+
+    EmailStartRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "john@example.com"
+
+    FirebaseAuthRequest:
+      type: object
+      required: [idToken]
+      properties:
+        idToken:
+          type: string
+          description: Firebase ID token from client SDK
+          example: "eyJhbGciOiJSUzI1NiIs..."
+
+    FirebaseAuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+          description: JWT token for subsequent API calls
+          example: "eyJhbGciOiJIUzI1NiIs..."
+
+    ScheduleSessionRequest:
+      type: object
+      required: [ownerEmail, startTime]
+      properties:
+        ownerEmail:
+          type: string
+          format: email
+          description: Email of the calendar owner (therapist)
+          example: "therapist@example.com"
+        therapistName:
+          type: string
+          description: Name of the therapist
+          example: "Dr. Smith"
+        startTime:
+          type: string
+          format: date-time
+          description: Session start time in ISO 8601 format
+          example: "2025-06-15T10:00:00Z"
+        participants:
+          type: array
+          description: List of participant emails to invite
+          items:
+            type: object
+            properties:
+              email:
+                type: string
+                format: email
+          example:
+            - email: "patient@example.com"
+
+    ScheduleSessionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        meetLink:
+          type: string
+          format: uri
+          description: Google Meet link for the session
+          example: "https://meet.google.com/abc-defg-hij"
+        message:
+          type: string
+          example: "Session scheduled. Calendar invite sent."
+
+    CheckoutRequest:
+      type: object
+      required: [productId]
+      properties:
+        provider:
+          type: string
+          enum: [lemon, dodo]
+          description: Payment provider to use (defaults to server config)
+          example: "dodo"
+        productId:
+          type: string
+          description: ID of the product/plan to purchase
+          example: "prod_abc123"
+        quantity:
+          type: integer
+          description: Quantity of the product
+          example: 1
+
+    CheckoutResponse:
+      type: object
+      properties:
+        checkoutUrl:
+          type: string
+          format: uri
+          description: URL to redirect the user to for payment
+          example: "https://checkout.dodopayments.com/session/xyz"
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Missing token"
+
+    ErrorResponseWithError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "ownerEmail and startTime are required"
+
+paths:
+  /auth/google:
+    get:
+      tags: [Auth]
+      summary: Start Google OAuth flow
+      description: Redirects the user to Google's consent screen to authorize the application.
+      responses:
+        "302":
+          description: Redirect to Google OAuth consent screen
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+
+  /auth/oauth2callback:
+    get:
+      tags: [Auth]
+      summary: Google OAuth callback
+      description: Handles the callback from Google after user authorizes. Exchanges the authorization code for tokens.
+      parameters:
+        - name: code
+          in: query
+          required: true
+          description: Authorization code from Google
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OAuth successful
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Google OAuth successful. You can close this window."
+        "400":
+          description: Missing OAuth code
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Missing OAuth code"
+        "500":
+          description: OAuth flow failed
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "OAuth failed"
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Dev-only login
+      description: |
+        **Development only.** Returns a JWT token for the given user payload.
+        Returns 404 in production.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: JWT token generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "id, email and name are required"
+        "404":
+          description: Not available in production
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Not found"
+
+  /auth/email/start:
+    post:
+      tags: [Auth]
+      summary: Start email verification
+      description: Sends a verification email to the provided email address with a verification link.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailStartRequest"
+      responses:
+        "200":
+          description: Verification email sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+
+  /auth/firebase:
+    post:
+      tags: [Auth]
+      summary: Firebase authentication
+      description: Verifies a Firebase ID token, creates/retrieves the user in the database, and returns a JWT for subsequent API calls.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FirebaseAuthRequest"
+      responses:
+        "200":
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FirebaseAuthResponse"
+
+  /auth/verify-email:
+    get:
+      tags: [Auth]
+      summary: Verify email token
+      description: |
+        Verifies the email token from the verification link.
+        - On mobile: redirects to `firsttherapy://email-verified` deep link
+        - On web: redirects to the web app's email-verified page
+        - On failure: redirects to the invalid link page
+      parameters:
+        - name: token
+          in: query
+          required: true
+          description: Email verification token
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect based on platform and verification result
+          headers:
+            Location:
+              schema:
+                type: string
+
+  /calendar/schedule:
+    post:
+      tags: [Calendar]
+      summary: Schedule a therapy session
+      description: |
+        Creates a Google Calendar event with a Google Meet link and sends calendar invites to all participants.
+        The owner email is automatically added to participants if not already included.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScheduleSessionRequest"
+      responses:
+        "200":
+          description: Session scheduled successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleSessionResponse"
+        "400":
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseWithError"
+              example:
+                error: "ownerEmail and startTime are required"
+
+  /billing/checkout:
+    post:
+      tags: [Billing]
+      summary: Create a checkout session
+      description: Creates a payment checkout session with the specified provider and returns a checkout URL to redirect the user to.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutRequest"
+      responses:
+        "200":
+          description: Checkout session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutResponse"
+        "400":
+          description: Missing productId
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "productId required"
+        "401":
+          description: Missing or invalid JWT token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Missing token"
+
+  /billing/webhook:
+    post:
+      tags: [Billing]
+      summary: Payment webhook
+      description: |
+        Handles incoming webhook events from payment providers (LemonSqueezy / Dodo Payments).
+        Expects the raw request body for signature verification.
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Webhook processed successfully
+
+  /email-verified:
+    get:
+      tags: [Pages]
+      summary: Email verified success page
+      description: Displays a success message after email verification.
+      responses:
+        "200":
+          description: Success page
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Email verified successfully. You can close this tab."
+
+  /invalid:
+    get:
+      tags: [Pages]
+      summary: Invalid verification link page
+      description: Displays an error message for invalid or expired verification links.
+      responses:
+        "400":
+          description: Error page
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Invalid or expired verification link."
