@@ -15,8 +15,10 @@ info:
 servers:
   - url: http://localhost:3000
     description: Local development
-  - url: https://api.firsttherapy.com
-    description: Production (example)
+  - url: https://first-therapy-backend.onrender.com
+    description: Bhavin's
+  - url: https://first-therapy-backend-ra0h.onrender.com
+    description: Production
 
 tags:
   - name: Calendar
