@@ -15,16 +15,30 @@ info:
 servers:
   - url: http://localhost:3000
     description: Local development
-  - url: https://api.firsttherapy.com
-    description: Production (example)
+  - url: https://first-therapy-backend.onrender.com
+    description: Bhavin's
+  - url: https://first-therapy-backend-ra0h.onrender.com
+    description: Production
 
 tags:
-  - name: Calendar
-    description: Therapy session scheduling with Google Calendar & Meet
+  - name: Health
+    description: API health check
+  - name: Auth
+    description: Authentication via OTP, Google OAuth, and token management
+  - name: Users
+    description: User profile management
+  - name: Sessions
+    description: Therapy session requests
   - name: Billing
     description: Checkout and payment webhook handling
+  - name: Calendar
+    description: Therapy session scheduling with Google Calendar & Meet
   - name: Notifications
     description: Send notifications to users via multiple channels
+  - name: Availability
+    description: Available therapy slots
+  - name: Therapists
+    description: Therapist CRUD management (admin)
   - name: Admin
     description: Admin-only endpoints for managing platform data
 
@@ -114,6 +128,266 @@ components:
           description: URL to redirect the user to for payment
           example: "https://checkout.dodopayments.com/session/xyz"
 
+    SendOtpRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+
+    VerifyOtpRequest:
+      type: object
+      required: [email, token]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        token:
+          type: string
+          example: "123456"
+
+    RefreshTokenRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    LogoutRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    UpdateUserProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "John Smith"
+        age:
+          type: integer
+          example: 30
+        gender:
+          type: string
+          example: "male"
+        phone:
+          type: string
+          example: "+1234567890"
+
+    CreateSessionRequest:
+      type: object
+      required: [availabilityId]
+      properties:
+        availabilityId:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        plan_name:
+          type: string
+          example: "Standard Plan"
+        plan_price:
+          type: number
+          example: 2000
+        notes:
+          type: string
+          example: "First session"
+
+    TherapistRequest:
+      type: object
+      required:
+        [
+          name,
+          phone,
+          email,
+          dateOfJoining,
+          tier,
+          timezone,
+          currency,
+          sessionDuration,
+          perSessionChargeDomestic,
+          perSessionChargeIntl,
+          slidingSessionMin,
+          slidingSessionMax,
+        ]
+      properties:
+        name:
+          type: string
+          example: "Dr. Smith"
+        phone:
+          type: string
+          example: "+1234567890"
+        email:
+          type: string
+          format: email
+          example: "smith@example.com"
+        dateOfJoining:
+          type: string
+          format: date
+          example: "2024-01-15"
+        tier:
+          type: integer
+          enum: [1, 2, 3]
+          example: 1
+        timezone:
+          type: string
+          example: "Asia/Kolkata"
+        currency:
+          type: string
+          enum: [INR, USD]
+          example: "INR"
+        sessionDuration:
+          type: integer
+          enum: [30, 45, 60, 75]
+          example: 60
+        perSessionChargeDomestic:
+          type: number
+          example: 2000
+        perSessionChargeIntl:
+          type: number
+          example: 50
+        slidingSessionMin:
+          type: number
+          example: 1000
+        slidingSessionMax:
+          type: number
+          example: 2000
+        notes:
+          type: string
+          example: "Specializes in anxiety"
+        availability:
+          type: array
+          items:
+            $ref: "#/components/schemas/DayAvailability"
+
+    TherapistUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        dateOfJoining:
+          type: string
+          format: date
+        tier:
+          type: integer
+          enum: [1, 2, 3]
+        timezone:
+          type: string
+        currency:
+          type: string
+          enum: [INR, USD]
+        sessionDuration:
+          type: integer
+          enum: [30, 45, 60, 75]
+        perSessionChargeDomestic:
+          type: number
+        perSessionChargeIntl:
+          type: number
+        slidingSessionMin:
+          type: number
+        slidingSessionMax:
+          type: number
+        notes:
+          type: string
+        availability:
+          type: array
+          items:
+            $ref: "#/components/schemas/DayAvailability"
+
+    DayAvailability:
+      type: object
+      required: [day, flexible, slots]
+      properties:
+        day:
+          type: string
+          enum: [Mon, Tue, Wed, Thu, Fri, Sat, Sun]
+          example: "Mon"
+        flexible:
+          type: boolean
+          example: false
+        slots:
+          type: array
+          items:
+            type: object
+            properties:
+              startHour:
+                type: integer
+                minimum: 0
+                maximum: 23
+                example: 9
+              startMinute:
+                type: integer
+                minimum: 0
+                maximum: 59
+                example: 0
+
+    TherapistObject:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        dateOfJoining:
+          type: string
+          format: date
+        tier:
+          type: integer
+        timezone:
+          type: string
+        currency:
+          type: string
+        sessionDuration:
+          type: integer
+        perSessionChargeDomestic:
+          type: number
+        perSessionChargeIntl:
+          type: number
+        slidingSessionMin:
+          type: number
+        slidingSessionMax:
+          type: number
+        notes:
+          type: string
+        availability:
+          type: array
+          items:
+            $ref: "#/components/schemas/DayAvailability"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        data:
+          type: object
+
     ErrorResponse:
       type: object
       properties:
@@ -142,7 +416,11 @@ components:
           items:
             type: string
             format: uuid
-          example: ["0c20a452-2714-437d-a25e-bb2fabb9b286", "843cca93-4800-4cff-9c38-7a2205de574e"]
+          example:
+            [
+              "0c20a452-2714-437d-a25e-bb2fabb9b286",
+              "843cca93-4800-4cff-9c38-7a2205de574e",
+            ]
         title:
           type: string
           description: Notification title
@@ -416,6 +694,478 @@ components:
               example: false
 
 paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: Check if the API is running
+      responses:
+        "200":
+          description: API is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "API is running"
+
+  /auth/send-otp:
+    post:
+      tags: [Auth]
+      summary: Send OTP
+      description: Send OTP to user email for login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendOtpRequest"
+      responses:
+        "200":
+          description: OTP sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /auth/verify-otp:
+    post:
+      tags: [Auth]
+      summary: Verify OTP
+      description: Verify OTP and get authentication tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyOtpRequest"
+      responses:
+        "200":
+          description: OTP verified successfully, returns access and refresh tokens
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /auth/google/url:
+    get:
+      tags: [Auth]
+      summary: Get Google OAuth URL
+      description: Get Google OAuth authentication URL
+      responses:
+        "200":
+          description: Google OAuth URL generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /auth/google/callback:
+    get:
+      tags: [Auth]
+      summary: Google OAuth callback
+      description: Handle Google OAuth callback (redirects to app with tokens)
+      parameters:
+        - name: code
+          in: query
+          required: true
+          description: Authorization code from Google
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirects to `firsttherapy://auth-success` with tokens
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh token
+      description: Get new access token using refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "200":
+          description: Session refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout
+      description: Logout and invalidate refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogoutRequest"
+      responses:
+        "200":
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Get current user profile
+      description: Get current authenticated user's profile
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      tags: [Users]
+      summary: Update current user profile
+      description: Update current user's profile (name, age, gender, phone only)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserProfileRequest"
+      responses:
+        "200":
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions:
+    post:
+      tags: [Sessions]
+      summary: Create session
+      description: Create a new therapy session request
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionRequest"
+      responses:
+        "200":
+          description: Session created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    get:
+      tags: [Sessions]
+      summary: Get all sessions
+      description: Get all sessions for current user
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Sessions retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /sessions/{id}:
+    get:
+      tags: [Sessions]
+      summary: Get session by ID
+      description: Get specific session details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Session ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Session retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /availability:
+    get:
+      tags: [Availability]
+      summary: Get available slots
+      description: Get available therapy slots for a specific date
+      parameters:
+        - name: date
+          in: query
+          required: true
+          description: Date in ISO format (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+          example: "2024-02-25"
+      responses:
+        "200":
+          description: Available slots retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /therapists:
+    get:
+      tags: [Therapists]
+      summary: Get all therapists
+      description: Get all therapists with their availability schedules
+      security:
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: Therapists retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Therapists retrieved successfully"
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TherapistObject"
+        "401":
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      tags: [Therapists]
+      summary: Create therapist
+      description: Create a new therapist with optional availability slots
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TherapistRequest"
+      responses:
+        "201":
+          description: Therapist created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Therapist created successfully"
+                  data:
+                    $ref: "#/components/schemas/TherapistObject"
+        "401":
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /therapists/{id}:
+    get:
+      tags: [Therapists]
+      summary: Get therapist by ID
+      description: Get a single therapist by ID with availability
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Therapist ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Therapist retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Therapist retrieved successfully"
+                  data:
+                    $ref: "#/components/schemas/TherapistObject"
+        "404":
+          description: Therapist not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Therapist not found"
+        "401":
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      tags: [Therapists]
+      summary: Update therapist
+      description: Update therapist details and/or availability (partial update supported). When availability is provided, all existing slots are replaced.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Therapist ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TherapistUpdateRequest"
+      responses:
+        "200":
+          description: Therapist updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Therapist updated successfully"
+                  data:
+                    $ref: "#/components/schemas/TherapistObject"
+        "404":
+          description: Therapist not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      tags: [Therapists]
+      summary: Delete therapist
+      description: Delete a therapist. Availability records cascade-delete via foreign key.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Therapist ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Therapist deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Therapist deleted successfully"
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+        "404":
+          description: Therapist not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /calendar/schedule:
     post:
       tags: [Calendar]
@@ -506,12 +1256,12 @@ paths:
       summary: Send notifications to users
       description: |
         Send notifications to users via multiple channels (in-app, push, email).
-        
+
         **Three modes:**
         1. **Broadcast mode**: Set `broadcast: true` to send to all users (response type: "broadcast")
         2. **Multiple users mode**: Provide `user_ids` array with 2+ users (response type: "multiple")
         3. **Single user mode**: Provide `user_ids` array with 1 user (response type: "single")
-        
+
         Optional fields include `type` (notification category) and `metadata` (custom data).
       security:
         - ApiKeyAuth: []
@@ -532,7 +1282,11 @@ paths:
               multiple:
                 summary: Send to multiple specific users
                 value:
-                  user_ids: ["0c20a452-2714-437d-a25e-bb2fabb9b286", "843cca93-4800-4cff-9c38-7a2205de574e"]
+                  user_ids:
+                    [
+                      "0c20a452-2714-437d-a25e-bb2fabb9b286",
+                      "843cca93-4800-4cff-9c38-7a2205de574e",
+                    ]
                   title: "Multi User Test"
                   message: "This goes to multiple users."
                   channels: ["in_app", "push"]
