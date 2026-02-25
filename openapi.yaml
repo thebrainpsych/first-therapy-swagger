@@ -25,6 +25,8 @@ tags:
     description: Checkout and payment webhook handling
   - name: Notifications
     description: Send notifications to users via multiple channels
+  - name: Admin
+    description: Admin-only endpoints for managing platform data
 
 components:
   securitySchemes:
@@ -308,6 +310,110 @@ components:
           type: integer
           description: Number of unread notifications for the user
           example: 2
+
+    AdminUserObject:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: User ID
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        email:
+          type: string
+          format: email
+          description: User email address
+          example: "user@example.com"
+        name:
+          type: string
+          description: User full name
+          example: "John Doe"
+        phone:
+          type: string
+          description: User phone number
+          example: "+1234567890"
+        created_at:
+          type: string
+          format: date-time
+          description: User creation timestamp
+          example: "2024-01-15T10:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: User update timestamp
+          example: "2024-02-20T09:00:00Z"
+
+    AdminUsersListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Users retrieved successfully"
+        data:
+          type: object
+          properties:
+            users:
+              type: array
+              description: List of users with non-empty emails
+              items:
+                $ref: "#/components/schemas/AdminUserObject"
+            page:
+              type: integer
+              description: Current page (when using page/per_page)
+              example: 1
+            perPage:
+              type: integer
+              description: Users per page (when using page/per_page)
+              example: 100
+            total:
+              type: integer
+              description: Total number of users matching the criteria
+              example: 1
+            skip:
+              type: integer
+              description: Number of users skipped (when using skip/limit)
+              example: 0
+            limit:
+              type: integer
+              description: Max number of users returned (when using skip/limit)
+              example: 100
+
+    AdminNotificationsListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Notifications retrieved successfully"
+        data:
+          type: object
+          properties:
+            data:
+              type: array
+              description: List of notifications
+              items:
+                $ref: "#/components/schemas/NotificationObject"
+            total:
+              type: integer
+              description: Total number of notifications available
+              example: 1
+            limit:
+              type: integer
+              description: Limit used in the request
+              example: 20
+            offset:
+              type: integer
+              description: Offset used in the request
+              example: 0
+            hasMore:
+              type: boolean
+              description: Whether there are more notifications to fetch
+              example: false
 
 paths:
   /calendar/schedule:
@@ -737,3 +843,164 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 message: "Missing or invalid token"
+
+  /users:
+    get:
+      tags: [Admin]
+      summary: List all users (admin)
+      description: |
+        List all users for the admin portal (supports pagination).
+        Only users with a non-empty email in the users table are returned.
+
+        If `skip` or `limit` is provided, pagination uses skip/limit and the response includes those fields.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: "Page number (default: 1)"
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          example: 1
+        - name: per_page
+          in: query
+          description: "Users per page (default: 100, max: 1000)"
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+          example: 100
+        - name: skip
+          in: query
+          description: Number of users to skip (alternative to page)
+          schema:
+            type: integer
+            minimum: 0
+          example: 0
+        - name: limit
+          in: query
+          description: Number of users to return (alternative to per_page)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+          example: 100
+      responses:
+        "200":
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUsersListResponse"
+              example:
+                success: true
+                message: "Users retrieved successfully"
+                data:
+                  users:
+                    - id: "550e8400-e29b-41d4-a716-446655440000"
+                      email: "user@example.com"
+                      name: "John Doe"
+                      phone: "+1234567890"
+                      created_at: "2024-01-15T10:30:00Z"
+                      updated_at: "2024-02-20T09:00:00Z"
+                  page: 1
+                  perPage: 100
+                  total: 1
+        "400":
+          description: Invalid pagination parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "per_page must be between 1 and 1000"
+        "401":
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Invalid x-api-key"
+
+  /notifications/admin:
+    get:
+      tags: [Admin]
+      summary: Get notifications (admin portal)
+      description: |
+        Get notifications across all users for the admin portal.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: limit
+          in: query
+          description: "Limit number of results (default: 20, max: 100)"
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+          example: 20
+        - name: offset
+          in: query
+          description: "Pagination offset (default: 0)"
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+          example: 0
+        - name: user_id
+          in: query
+          description: Filter notifications for a specific user
+          schema:
+            type: string
+            format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        - name: unread_only
+          in: query
+          description: Only unread notifications when true
+          schema:
+            type: boolean
+          example: true
+      responses:
+        "200":
+          description: Notifications retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNotificationsListResponse"
+              example:
+                success: true
+                message: "Notifications retrieved successfully"
+                data:
+                  data:
+                    - id: "550e8400-e29b-41d4-a716-446655440010"
+                      user_id: "550e8400-e29b-41d4-a716-446655440000"
+                      title: "Session Reminder"
+                      message: "Your therapy session starts in 30 minutes"
+                      is_read: false
+                      channels: ["in_app", "push"]
+                      created_at: "2024-02-24T13:30:00Z"
+                  total: 1
+                  limit: 20
+                  offset: 0
+                  hasMore: false
+        "400":
+          description: Invalid pagination parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "limit must be between 1 and 100"
+        "401":
+          description: Missing or invalid API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Invalid x-api-key"
